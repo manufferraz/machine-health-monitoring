@@ -10,8 +10,13 @@
 
 #define QOS 1
 #define BROKER_ADDRESS "tcp://localhost:1883"
+#define SERIAL_PORT = "COM3";
+#define BAUD_RATE = 115200;
 
 int main(int argc, char* argv[]) {
+    // Configuração da porta serial
+    serial::Serial my_serial(SERIAL_PORT, BAUD_RATE, serial::Timeout::simpleTimeout(1000));
+
     std::string clientId = "sensor-monitor";
     mqtt::client client(BROKER_ADDRESS, clientId);
 
@@ -42,19 +47,37 @@ int main(int argc, char* argv[]) {
         ss << std::put_time(now_tm, "%FT%TZ");
         std::string timestamp = ss.str();
 
-        // Generate a random value.
-        int value = rand();
+        // Pega os valores dos sensores e publica em cada tópico.
+        if (my_serial.available()) {
+            std::string line = my_serial.readline();
+            std::cout << "Dados recebidos: " << line << std::endl;
 
-        // Construct the JSON message.
-        nlohmann::json j;
-        j["timestamp"] = timestamp;
-        j["value"] = value;
+            // Identificar se a mensagem é de temperatura ou umidade
+            if (line.find("Temperatura: ") != std::string::npos) {
+                // Construct the JSON message.
+                nlohmann::json j;
+                j["timestamp"] = timestamp;
+                j["value"] = line;
 
-        // Publish the JSON message to the appropriate topic.
-        std::string topic = "/sensors/" + machineId + "/rand";
-        mqtt::message msg(topic, j.dump(), QOS, false);
-        std::clog << "message published - topic: " << topic << " - message: " << j.dump() << std::endl;
-        client.publish(msg);
+                // Publish the JSON message to the appropriate topic.
+                std::string topic = "/temperatureSensor/" + machineId + "/rand";
+                mqtt::message msg(topic, j.dump(), QOS, false);
+                std::clog << "message published - topic: " << topic << " - message: " << line << std::endl;
+                client.publish(msg);
+
+            } else if (line.find("Umidade: ") != std::string::npos) {
+                // Construct the JSON message.
+                nlohmann::json j;
+                j["timestamp"] = timestamp;
+                j["value"] = line;
+
+                // Publish the JSON message to the appropriate topic.
+                std::string topic = "/Humiditysensor/" + machineId + "/rand";
+                mqtt::message msg(topic, j.dump(), QOS, false);
+                std::clog << "message published - topic: " << topic << " - message: " << line << std::endl;
+                client.publish(msg);
+            }  
+        }            
 
         // Sleep for some time.
         std::this_thread::sleep_for(std::chrono::seconds(1));
