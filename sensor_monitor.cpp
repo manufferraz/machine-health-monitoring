@@ -4,20 +4,20 @@
 #include <ctime>
 #include <thread>
 #include <unistd.h>
-#include "json.hpp" // json handling
-#include "mqtt/client.h" // paho mqtt
+#include "json.hpp"  // json handling
+#include "mqtt/client.h"  // Paho MQTT
 #include <iomanip>
 
 #define QOS 1
-#define BROKER_ADDRESS "tcp://localhost:1883"
-#define SERIAL_PORT = "COM3";
-#define BAUD_RATE = 115200;
+#define BROKER_ADDRESS "tcp://maqiatto.com:1883"
+#define SERIAL_PORT "/dev/ttyUSB0"
+#define BAUD_RATE 115200
 
 int main(int argc, char* argv[]) {
     // Configuração da porta serial
     serial::Serial my_serial(SERIAL_PORT, BAUD_RATE, serial::Timeout::simpleTimeout(1000));
 
-    std::string clientId = "sensor-monitor";
+    std::string clientId = "lucasl050503@gmail.com";
     mqtt::client client(BROKER_ADDRESS, clientId);
 
     // Connect to the MQTT broker.
@@ -27,19 +27,14 @@ int main(int argc, char* argv[]) {
 
     try {
         client.connect(connOpts);
-    } catch (mqtt::exception& e) {
+    } catch (const mqtt::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
-    std::clog << "connected to the broker" << std::endl;
-
-    // Get the unique machine identifier, in this case, the hostname.
-    char hostname[1024];
-    gethostname(hostname, 1024);
-    std::string machineId(hostname);
+    std::clog << "Connected to the broker" << std::endl;
 
     while (true) {
-       // Get the current time in ISO 8601 format.
+        // Get the current time in ISO 8601 format.
         auto now = std::chrono::system_clock::now();
         std::time_t now_c = std::chrono::system_clock::to_time_t(now);
         std::tm* now_tm = std::localtime(&now_c);
@@ -60,9 +55,9 @@ int main(int argc, char* argv[]) {
                 j["value"] = line;
 
                 // Publish the JSON message to the appropriate topic.
-                std::string topic = "/temperatureSensor/" + machineId + "/rand";
+                std::string topic = clientId + "/UPI1/temperature";
                 mqtt::message msg(topic, j.dump(), QOS, false);
-                std::clog << "message published - topic: " << topic << " - message: " << line << std::endl;
+                std::clog << "Message published - topic: " << topic << " - message: " << line << std::endl;
                 client.publish(msg);
 
             } else if (line.find("Umidade: ") != std::string::npos) {
@@ -72,9 +67,9 @@ int main(int argc, char* argv[]) {
                 j["value"] = line;
 
                 // Publish the JSON message to the appropriate topic.
-                std::string topic = "/Humiditysensor/" + machineId + "/rand";
+                std::string topic = clientId + "/UPI1/moisture";
                 mqtt::message msg(topic, j.dump(), QOS, false);
-                std::clog << "message published - topic: " << topic << " - message: " << line << std::endl;
+                std::clog << "Message published - topic: " << topic << " - message: " << line << std::endl;
                 client.publish(msg);
             }  
         }            
